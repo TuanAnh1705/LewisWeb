@@ -1,14 +1,13 @@
-// File: app/admin/preview/[id]/page.tsx (DASHBOARD)
-// (Trang này chạy trên server của Dashboard, nên được phép dùng Prisma)
+// File: src/app/(demo)/preview/[id]/page.tsx
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 
 interface PreviewPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }> // ✅ Thay đổi thành Promise
 }
 
 export default async function PreviewPage({ params }: PreviewPageProps) {
-  const { id } = params
+  const { id } = await params 
   const postId = Number(id)
 
   if (isNaN(postId)) return notFound()
