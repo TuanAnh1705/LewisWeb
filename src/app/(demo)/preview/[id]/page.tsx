@@ -8,7 +8,7 @@ interface PreviewPageProps {
 }
 
 export default async function PreviewPage({ params }: PreviewPageProps) {
-  const { id } = await params
+  const { id } = params
   const postId = Number(id)
 
   if (isNaN(postId)) return notFound()
