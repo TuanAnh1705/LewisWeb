@@ -11,8 +11,12 @@ function slugify(str: string) {
 }
 
 // PUT update category
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: Request, 
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params // ✅ Await params
     const body = await req.json()
     const { name } = body
 
@@ -21,7 +25,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const slug = slugify(name)
 
     const updated = await prisma.category.update({
-      where: { id: Number(params.id) },
+      where: { id: Number(id) }, // ✅ Dùng id đã await
       data: { name, slug },
     })
 
@@ -33,10 +37,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // DELETE category
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _: Request, 
+  { params }: { params: Promise<{ id: string }> } // ✅ Thêm Promise
+) {
   try {
+    const { id } = await params // ✅ Await params
     await prisma.category.delete({
-      where: { id: Number(params.id) },
+      where: { id: Number(id) }, // ✅ Dùng id đã await
     })
     return NextResponse.json({ success: true })
   } catch (err: any) {
