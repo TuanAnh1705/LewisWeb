@@ -1,16 +1,19 @@
-// File: app/api/admin/post/[id]/categories/route.ts (DASHBOARD)
+// File: src/app/api/admin/post/[id]/categories/route.ts
 import { prisma } from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
 
 // GET: lấy tất cả categories + categories đã gắn cho post (cho dialog)
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // ✅ Thêm Promise
+) {
   try {
     const { id } = await params
     const postId = Number(id)
 
     const [allCategories, postCategories] = await Promise.all([
       prisma.category.findMany({ orderBy: { name: "asc" } }),
-      prisma.postCategory.findMany({ where: { postId } }) // không cần include
+      prisma.postCategory.findMany({ where: { postId } })
     ])
 
     return NextResponse.json({
@@ -23,22 +26,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT: cập nhật toàn bộ categories cho post (KHÔNG publish)
-// Dùng cho nút "Edit"
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // ✅ Thêm Promise
+) {
   try {
-    const { id } = params
+    const { id } = await params // ✅ Await params
     const postId = Number(id)
     const { categoryIds } = await req.json()
+    
     if (!Array.isArray(categoryIds)) {
       return NextResponse.json({ error: "categoryIds[] required" }, { status: 400 })
     }
 
-    // clear & insert
     await prisma.$transaction([
-        prisma.postCategory.deleteMany({ where: { postId } }),
-        prisma.postCategory.createMany({
-            data: categoryIds.map((cid: number) => ({ postId, categoryId: cid })),
-        })
+      prisma.postCategory.deleteMany({ where: { postId } }),
+      prisma.postCategory.createMany({
+        data: categoryIds.map((cid: number) => ({ postId, categoryId: cid })),
+      })
     ])
 
     return NextResponse.json({ success: true })
@@ -48,14 +53,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE: xoá 1 category khỏi post
-// (API này code của bạn có, nhưng dialog của bạn không dùng)
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest, 
+  { params }: { params: Promise<{ id: string }> } // ✅ Thêm Promise
+) {
   try {
-    const { id } = params
+    const { id } = await params // ✅ Await params
     const postId = Number(id)
     const { searchParams } = new URL(req.url)
     const categoryId = Number(searchParams.get("categoryId"))
-    if (!categoryId) return NextResponse.json({ error: "categoryId required" }, { status: 400 })
+    
+    if (!categoryId) {
+      return NextResponse.json({ error: "categoryId required" }, { status: 400 })
+    }
 
     await prisma.postCategory.delete({
       where: { postId_categoryId: { postId, categoryId } }

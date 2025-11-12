@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server"
 // DELETE: Xóa vĩnh viễn một bài viết
 export async function DELETE(
   req: NextRequest, 
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params

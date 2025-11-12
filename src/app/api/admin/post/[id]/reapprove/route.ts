@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 // API này HỦY DUYỆT (unpublish) và XÓA 1 CATEGORY
 // Dùng cho nút "Restore"
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const postId = Number(id)
