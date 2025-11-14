@@ -30,14 +30,14 @@ export function Menu({ isOpen }: MenuProps) {
   async function handleLogout() {
   try {
     await axios.post("/api/logout", {}, { withCredentials: true });
-    toast.success("Đăng xuất thành công!");
+    toast.success("Logout Successfully!");
     localStorage.clear();
     sessionStorage.clear();
     router.replace("/login");
     router.refresh();
   } catch (err) {
     console.error(err);
-    toast.error("Không thể đăng xuất!");
+    toast.error("Cannot Logout!");
   }
 }
 
