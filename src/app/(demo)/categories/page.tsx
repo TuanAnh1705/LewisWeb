@@ -72,7 +72,7 @@ export default function CategoriesPage() {
       </Breadcrumb>
 
       <div className="max-w-7xl mx-auto py-8 px-6 space-y-6">
-        <div className="flex justify-between items-start -mx-16">
+        <div className="flex justify-between items-start ">
           <h1 className="text-3xl font-bold">Manage Categories</h1>
           <CategoryDialog editingCategory={null} onSuccess={fetchCategories} />
         </div>
