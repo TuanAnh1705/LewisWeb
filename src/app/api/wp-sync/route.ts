@@ -1,4 +1,4 @@
-// File: app/api/wp-sync/route.ts (DASHBOARD)
+// File: app/api/wp-sync/route.ts (DASHBOARD) - FIXED
 import { prisma } from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
 import he from "he"
@@ -23,15 +23,39 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const full = searchParams.get("full") === "true"
 
+    // 📦 Lưu trạng thái approve trước khi TRUNCATE
+    let approvedPostsMap = new Map<number, { 
+      isPublished: boolean, 
+      categoryIds: number[] 
+    }>()
+
     if (full) {
-      // Yêu cầu của bạn: Reset ID
-      // Dùng TRUNCATE an toàn hơn
-      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0;`);
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE PostCategory;`);
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE BlogImage;`);
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE BlogPost;`);
-      // Bạn cũng có thể TRUNCATE Category, User... nếu muốn
-      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1;`);
+      // Lấy tất cả bài đã approve kèm categories
+      const approvedPosts = await prisma.blogPost.findMany({
+        where: { isPublishedOnNextjs: true },
+        select: {
+          wpId: true,
+          isPublishedOnNextjs: true,
+          categories: {
+            select: { categoryId: true }
+          }
+        }
+      })
+
+      // Lưu vào Map để restore sau
+      approvedPosts.forEach(post => {
+        approvedPostsMap.set(post.wpId, {
+          isPublished: post.isPublishedOnNextjs,
+          categoryIds: post.categories.map(c => c.categoryId)
+        })
+      })
+
+      // Reset ID với TRUNCATE
+      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0;`)
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE PostCategory;`)
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE BlogImage;`)
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE BlogPost;`)
+      await prisma.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1;`)
     }
 
     let page = 1
@@ -55,6 +79,9 @@ export async function GET(req: NextRequest) {
         const images = extractImagesFromContent(contentHtml)
         const decodedTitle = he.decode(post.title?.rendered || "")
 
+        // Kiểm tra xem bài này có đã approve trước đó không
+        const previousState = approvedPostsMap.get(post.id)
+
         const saved = await prisma.blogPost.upsert({
           where: { wpId: post.id },
           update: {
@@ -64,6 +91,7 @@ export async function GET(req: NextRequest) {
             coverImage: cover,
             wpStatus: post.status,
             wpCreatedAt: new Date(post.date),
+            // 🔥 GIỮ NGUYÊN isPublishedOnNextjs khi update (không ghi đè)
           },
           create: {
             wpId: post.id,
@@ -73,16 +101,30 @@ export async function GET(req: NextRequest) {
             coverImage: cover,
             wpStatus: post.status,
             wpCreatedAt: new Date(post.date),
-            // isPublishedOnNextjs sẽ là false (mặc định)
+            // 🔥 Restore trạng thái approve nếu có
+            isPublishedOnNextjs: previousState?.isPublished || false,
           },
         })
 
+        // Xóa images cũ và tạo mới
         await prisma.blogImage.deleteMany({ where: { postId: saved.id } })
         if (images.length > 0) {
           await prisma.blogImage.createMany({
             data: images.map(url => ({ url, postId: saved.id }))
           })
         }
+
+        // 🔥 Restore categories nếu bài này đã approve trước đó
+        if (previousState && previousState.categoryIds.length > 0) {
+          await prisma.postCategory.deleteMany({ where: { postId: saved.id } })
+          await prisma.postCategory.createMany({
+            data: previousState.categoryIds.map(categoryId => ({
+              postId: saved.id,
+              categoryId: categoryId
+            }))
+          })
+        }
+
         imported++
       }
       page++
